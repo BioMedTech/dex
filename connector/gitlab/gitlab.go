@@ -3,6 +3,7 @@ package gitlab
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -33,6 +34,9 @@ type Config struct {
 	RedirectURI  string   `json:"redirectURI"`
 	Groups       []string `json:"groups"`
 	UseLoginAsID bool     `json:"useLoginAsID"`
+
+	// Don't verify the CA.
+	InsecureSkipVerify bool `json:"insecureSkipVerify"`
 }
 
 type gitlabUser struct {
@@ -49,6 +53,16 @@ func (c *Config) Open(id string, logger log.Logger) (connector.Connector, error)
 	if c.BaseURL == "" {
 		c.BaseURL = "https://gitlab.com"
 	}
+
+	var httpClient *http.Client
+	if c.InsecureSkipVerify {
+		httpClient = &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			},
+		}
+	}
+
 	return &gitlabConnector{
 		baseURL:      c.BaseURL,
 		redirectURI:  c.RedirectURI,
@@ -57,6 +71,7 @@ func (c *Config) Open(id string, logger log.Logger) (connector.Connector, error)
 		logger:       logger,
 		groups:       c.Groups,
 		useLoginAsID: c.UseLoginAsID,
+		httpClient:   httpClient,
 	}, nil
 }
 
